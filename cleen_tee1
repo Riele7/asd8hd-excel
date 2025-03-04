@@ -1,0 +1,56 @@
+Sub CleanDataWithExtras()
+    Dim ws As Worksheet, newSheet As Worksheet
+    Dim lastRow As Long, lastCol As Long
+    Dim rowIndex As Long, colIndex As Long
+    Dim formulaColumn As String
+
+    ' Set the active worksheet
+    Set ws = ActiveSheet
+    Application.ScreenUpdating = False
+
+    ' Create a new sheet (Excel will auto-name it)
+    Set newSheet = ThisWorkbook.Sheets.Add
+
+    ' Copy data to the new sheet
+    ws.Cells.Copy
+    newSheet.Cells.PasteSpecial Paste:=xlPasteValues
+    Application.CutCopyMode = False ' Clear clipboard
+
+    ' Find last row and last column
+    lastRow = newSheet.Cells(Rows.Count, "K").End(xlUp).Row
+    lastCol = newSheet.Cells(1, Columns.Count).End(xlToLeft).Column
+
+    ' Loop through rows in reverse to delete "Opening Balance" or blank column K values
+    For rowIndex = lastRow To 1 Step -1
+        If newSheet.Cells(rowIndex, 11).Value = "Opening Balance" Or Trim(newSheet.Cells(rowIndex, 11).Value) = "" Then
+            newSheet.Rows(rowIndex).Delete
+        End If
+    Next rowIndex
+
+    ' Update last row and last column after deletions
+    lastRow = newSheet.Cells(Rows.Count, 1).End(xlUp).Row
+    lastCol = newSheet.Cells(1, Columns.Count).End(xlToLeft).Column
+
+    ' Loop through columns in reverse to delete empty columns
+    For colIndex = lastCol To 1 Step -1
+        If Application.WorksheetFunction.CountA(newSheet.Columns(colIndex)) = 0 Then
+            newSheet.Columns(colIndex).Delete
+        End If
+    Next colIndex
+
+    ' Remove last two rows
+    lastRow = newSheet.Cells(Rows.Count, 1).End(xlUp).Row
+    If lastRow >= 2 Then newSheet.Rows(lastRow).Delete
+    If lastRow >= 3 Then newSheet.Rows(lastRow - 1).Delete
+
+    ' Add formula column at the end
+    lastCol = newSheet.Cells(1, Columns.Count).End(xlToLeft).Column + 1
+    formulaColumn = Split(Cells(1, lastCol).Address, "$")(1) ' Get column letter
+
+    newSheet.Cells(1, lastCol).Value = "Payroll Tax Check"
+    newSheet.Range(formulaColumn & "2:" & formulaColumn & lastRow).Formula = _
+        "=IF(ISNUMBER(SEARCH(""payroll tax entry"", F2)), ""Payroll Tax"", """")"
+
+    Application.ScreenUpdating = True
+    MsgBox "Data cleaned, last two rows removed, and Payroll Tax column added.", vbInformation, "Success"
+End Sub
