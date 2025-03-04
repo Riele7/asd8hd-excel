@@ -1,0 +1,26 @@
+Sub AssignAccountNumbers()
+    Dim ws As Worksheet
+    Dim lastRow As Long
+    Dim rowIndex As Long
+    Dim currentAccount As String
+
+    ' Set active worksheet
+    Set ws = ActiveSheet
+    Application.ScreenUpdating = False
+
+    ' Find last row in column A
+    lastRow = ws.Cells(Rows.Count, 2).End(xlUp).Row ' Checking column B for last row
+
+    ' Loop through rows in column A
+    For rowIndex = 1 To lastRow
+        ' Check if column A has a new account number
+        If ws.Cells(rowIndex, 1).Value <> "" Then
+            currentAccount = ws.Cells(rowIndex, 1).Value ' Store the current account number
+        Else
+            ws.Cells(rowIndex, 1).Value = currentAccount ' Fill down account number
+        End If
+    Next rowIndex
+
+    Application.ScreenUpdating = True
+    MsgBox "Account numbers assigned successfully.", vbInformation, "Success"
+End Sub
