@@ -1,0 +1,88 @@
+Sub CleanAndFormatSheet()
+    Dim ws As Worksheet, newSheet As Worksheet
+    Dim lastRow As Long, lastCol As Long
+    Dim rowIndex As Long, colIndex As Long
+    Dim currentAccount As String
+    Dim checkData As Variant
+    Dim formulaColumn As String
+
+    ' Set active worksheet
+    Set ws = ActiveSheet
+    Application.ScreenUpdating = False
+
+    ' Create a new sheet for cleaned data
+    Set newSheet = ThisWorkbook.Sheets.Add
+
+    ' Copy data to the new sheet (removes formulas and formatting)
+    ws.Cells.Copy
+    newSheet.Cells.PasteSpecial Paste:=xlPasteValues
+    Application.CutCopyMode = False ' Clear clipboard
+
+    ' Delete metadata rows
+    newSheet.Rows("1:3").Delete ' Remove date, report name, and date range
+    newSheet.Rows("1").Delete ' This was originally row 5 (account number)
+
+    ' Remove "Total:" rows
+    lastRow = newSheet.Cells(Rows.Count, 2).End(xlUp).Row
+    For rowIndex = lastRow To 1 Step -1
+        If Trim(newSheet.Cells(rowIndex, 2).Value) = "Total:" Then
+            newSheet.Rows(rowIndex).Delete
+        End If
+    Next rowIndex
+
+    ' Remove empty columns
+    lastCol = newSheet.Cells(1, Columns.Count).End(xlToLeft).Column
+    For colIndex = lastCol To 1 Step -1
+        If Application.WorksheetFunction.CountA(newSheet.Columns(colIndex)) = 0 Then
+            newSheet.Columns(colIndex).Delete
+        End If
+    Next colIndex
+
+    ' Set new headers
+    newSheet.Rows(1).Insert
+    newSheet.Range("A1:N1").Value = Array("Account Number", "Description", "Invoice #", "Invoice Doc Date", _
+                                          "Detail Memo", "Fund Number", "Account Code 1", "Account Code 2", _
+                                          "Account Code 3", "Detail Amount", "Check Number", "Check Date", _
+                                          "Check Total", "Check Name", "Check Memo")
+
+    ' Assign account numbers to all related rows
+    lastRow = newSheet.Cells(Rows.Count, 2).End(xlUp).Row
+    For rowIndex = 2 To lastRow
+        If newSheet.Cells(rowIndex, 1).Value <> "" Then
+            currentAccount = newSheet.Cells(rowIndex, 1).Value
+        Else
+            newSheet.Cells(rowIndex, 1).Value = currentAccount
+        End If
+    Next rowIndex
+
+    ' Extract check details from column B
+    For rowIndex = 2 To lastRow
+        checkData = Split(newSheet.Cells(rowIndex - 1, 2).Value, " - ")
+        If UBound(checkData) >= 4 Then
+            newSheet.Cells(rowIndex, 11).Value = Replace(checkData(0), "Check #: ", "") ' Check Number
+            newSheet.Cells(rowIndex, 12).Value = checkData(1) ' Check Date
+            newSheet.Cells(rowIndex, 13).Value = Replace(checkData(2), "Check Total: ", "") ' Check Total
+            newSheet.Cells(rowIndex, 14).Value = checkData(3) ' Check Name
+            newSheet.Cells(rowIndex, 15).Value = checkData(4) ' Check Memo
+        End If
+    Next rowIndex
+
+    ' Remove last two rows (in case extra blank or summary rows exist)
+    lastRow = newSheet.Cells(Rows.Count, 1).End(xlUp).Row
+    If lastRow >= 2 Then newSheet.Rows(lastRow).Delete
+    If lastRow >= 3 Then newSheet.Rows(lastRow - 1).Delete
+
+    ' Add payroll tax check column at the end
+    lastCol = newSheet.Cells(1, Columns.Count).End(xlToLeft).Column + 1
+    formulaColumn = Split(Cells(1, lastCol).Address, "$")(1) ' Get column letter
+
+    newSheet.Cells(1, lastCol).Value = "Payroll Tax Check"
+    newSheet.Range(formulaColumn & "2:" & formulaColumn & lastRow).Formula = _
+        "=IF(ISNUMBER(SEARCH(""payroll tax entry"", F2)), ""Payroll Tax"", """")"
+
+    ' Autofit columns for readability
+    newSheet.Columns.AutoFit
+
+    Application.ScreenUpdating = True
+    MsgBox "Data cleaned and saved in a new sheet.", vbInformation, "Success"
+End Sub
